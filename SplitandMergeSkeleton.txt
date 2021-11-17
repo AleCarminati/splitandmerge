@@ -1,0 +1,34 @@
+#Split & Merge
+
+class split&merge{
+	private:
+		C=vettore delle label
+		X=vettore dei dati
+		count
+	public:
+		split&mergeAlgo(T,K,M,N=2000)
+		computeS(i,j)
+		claunch(i,j)
+		splitOrMerge(cl,i,j)
+		MH(AcRa)
+		fullGS()
+		restrGS(cl)
+		proposalSwap(i,j)
+}
+
+matrix split&mergeAlgo {
+for n in range(N) :
+	for k in range(K) :
+		#MH
+		i,j=random.sample(range(len(X)))
+		cl=claunch(i,j)
+		AcRa=splitOrMerge(cl,i,j)
+		C[count]=MH(AcRa)
+	}
+	for m in range(M) :
+		C[count]=fullGibbsSampling()
+	count++
+return C
+}
+		
+	
