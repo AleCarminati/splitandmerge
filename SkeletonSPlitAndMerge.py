@@ -93,6 +93,7 @@ class SplitAndMerge(object):
                 return False
             
         def __FullGS():
+                
             
         def __RestrGS(cl,j):
             RandUnifGenerator=ss.uniform(0,1)
@@ -115,18 +116,21 @@ class SplitAndMerge(object):
             self.__X=X
                           
         def SplitAndMergeAlgo(self,T,K,M,N=2000):
-            
+            matrix=np.array(ndim=N)
             for n in range(N):
-                count=0
-                
                 for k in range(K):
                     RandIntGenerator=ss.randint(0,len(X)) #generate a random number between 0-len(X)-1
                     r = RandIntGenerator.rvs(size=2)  # i and j indeces
                     self.__ComputeS(r[0],r[1])
                     cl=self.__Claunch(r[0],r[1])
-                    CNew=self.SplitOrMerge(cl,i,j)
+                    self.__C=self.SplitOrMerge(cl,i,j)
                     
                 for m in range(M):
+                    self.__C=FullGS()
+                
+                matrix[n].add(self.__C)
+               
+        
                     
         
             
