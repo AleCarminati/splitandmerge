@@ -182,18 +182,18 @@ class SplitAndMerge(object):
                 data_i = self.__X[indexes_i] 
                 p_i = self.__hierarchy.conditional_pred_lpdf(\
                     self.__X[S[z]], data_i)
-                p_i = len(data)*p_i
+                p_i = len(data_i)*p_i
 
                 indexes_j = self.__S[cl==self.__C[j]]
                 data_j = self.__X[indexes_j] 
                 p_i = self.__hierarchy.conditional_pred_lpdf(\
                     self.__X[S[z]], data_j)
-                p_j = len(data)*p_j
+                p_j = len(data_j)*p_j
 
                 p = p_i / (p_i+p_j)
                 r = RandUnifGenerator.rvs(size=1)
                 if p>r:
-                 cl[z]=self.__LabI
+                  cl[z]=self.__LabI
                 else:
                   cl[z]=self.__C[j]
             return cl      
