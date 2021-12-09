@@ -6,6 +6,7 @@
 
 import numpy as np
 import scipy.stats as ss
+import math
 
 class AbstractHierarchy(object):
     """Abstract class that represents the mixture model.
@@ -60,7 +61,8 @@ class NNIGHierarchy(AbstractHierarchy):
 
     __k = ss.norm
     __P_0 = [ss.norm, ss.invgamma]
-
+    alpha= #da fissare
+    
     def __init__(self, mu0, lambda0, alpha0, beta0):
         self.__mu0 = mu0
         self.__lambda0 = lambda0
@@ -128,7 +130,7 @@ class SplitAndMerge(object):
                 #we keep the reference of the indeces of C
                 clSplit[i]=self.__LabI
                 clSplit[j]=self.__C[j]
-                cl=self.__RestrGS(cl,j)
+                [cl,q]=self.__RestrGS(cl,j,1)
                 z=0
                 for k in range(len(clSplit)-1):                    
                     if k!=i and k!=j and (k in self.__S):
@@ -137,8 +139,33 @@ class SplitAndMerge(object):
                      else:
                          if k!=i and k!=j and !(k in self.__S):
                              clSplit[k]=C[k]
-                q= # compute proposal probability (potrebbe servire registrasi le probabilità dell'ultimo Restrictedgibs sampling)
-                AcRa= #acceptance ratio 
+                p1=1/q
+                p2=math.factorial((len(clSplit==self.__LabI)-1))*math.factorial((len(clSplit==j)-1))/math.factorial((len(self.__S)-1))*alpha
+                
+                indexes_i = [clSplit==self.__LabI]
+                data_i = self.__X[indexes_i] 
+                p_i=1
+                for z in [clSplit==self.__LabI]           
+                    prob = self.__hierarchy.conditional_pred_lpdf(\
+                    self.__X[z], data_i)
+                    p_i=p_i*prob
+                indexes_j = [clSplit==j]
+                data_j = self.__X[indexes_j] 
+                p_j=1
+                for z in [clSplit==j]           
+                    prob = self.__hierarchy.conditional_pred_lpdf(\
+                    self.__X[z], data_j)
+                    p_j=p_j*prob
+                indexes_i =[self.__C==self.__LabI]
+                data_i = self.__X[indexes_i] 
+                P_i=1
+                for z in indexes_i          
+                    prob = self.__hierarchy.conditional_pred_lpdf(\
+                    self.__X[z], data_i)
+                    P_i=P_i*prob
+                p3=p_i*p_j/P_i
+                
+                AcRa=p1*p2*p3 #acceptance ratio 
                 res=self.__MH(AcRa)
                 if res=True:
                     return clSplit
@@ -155,8 +182,48 @@ class SplitAndMerge(object):
                      else:
                          if k!=i and k!=j and !(k in self.__S):
                              clMerge[k]=C[k]
-                q= # compute proposal probability (potrebbe servire registrasi le probabilità dell'ultimo Restrictedgibs sampling)
-                AcRa= #acceptance ratio                  
+                
+                v=np.array(ndmi=len(cl))
+                v=cl
+                q=1
+                for z in range(len(self.__S)):   #fake gibs sampling to compute q(c/cMerge) 
+                   indexes_i = self.__S[v==self.__C[self.__S[z]]]
+                   data_i = self.__X[indexes_i] 
+                   p_i = self.__hierarchy.conditional_pred_lpdf(
+                     self.__X[self.__S[z]], data_i)
+                   p_i = len(data_i)*p_i
+                   v[z]=self.__C[self.__S[z]]
+                   q=q*p_i
+                
+                p1=q
+                p2=math.factorial(len(self.__S)-1)/(math.factorial(len(self.__C==self.__LabI))*math.factorial(len(self.__C==j)))*(1/alpha)
+                
+                indexes_i =[clMerge==j]
+                data_i = self.__X[indexes_i] 
+                P_i=1
+                for z in indexes_i          
+                    prob = self.__hierarchy.conditional_pred_lpdf(\
+                    self.__X[z], data_i)
+                    P_i=P_i*prob
+                indexes_i = [self.__C==self.__LabI]
+                data_i = self.__X[indexes_i] 
+                p_i=1
+                for z in indexes_i          
+                    prob = self.__hierarchy.conditional_pred_lpdf(\
+                    self.__X[z], data_i)
+                    p_i=p_i*prob
+                indexes_j = [self.__C==j]
+                data_j = self.__X[indexes_j] 
+                p_j=1
+                for z in indexes_j          
+                    prob = self.__hierarchy.conditional_pred_lpdf(\
+                    self.__X[z], data_j)
+                    p_j=p_j*prob
+                    
+                p3=p_i*p_j/P_i
+                
+                AcRa=p1*p2*p3 #acceptance ratio
+                               
                 res=self.__MH(AcRa)
                 if res=True:
                     return clMerge
@@ -174,29 +241,35 @@ class SplitAndMerge(object):
         def __FullGS():
                 
             
-        def __RestrGS(cl,j):
+        def __RestrGS(cl,j,use=0): #use!=0 to use the function in SplitOrMerge, in order to report also res_prod
             """Compute a single step of the restricted Gibbs Sampling."""
+            res_prod=1 #is the probability to have the current vector of state cl
             RandUnifGenerator=ss.uniform(0,1)
-            for z in range(len(S)):
-                indexes_i = self.__S[cl==self.__LabI]
+            for z in range(len(self.__S)):
+                indexes_i = self.__S[cl==self.__LabI]. 
                 data_i = self.__X[indexes_i] 
                 p_i = self.__hierarchy.conditional_pred_lpdf(\
-                    self.__X[S[z]], data_i)
+                    self.__X[self.__S[z]], data_i)
                 p_i = len(data_i)*p_i
 
                 indexes_j = self.__S[cl==self.__C[j]]
                 data_j = self.__X[indexes_j] 
-                p_i = self.__hierarchy.conditional_pred_lpdf(\
-                    self.__X[S[z]], data_j)
+                p_j = self.__hierarchy.conditional_pred_lpdf(\
+                    self.__X[self.__S[z]], data_j)
                 p_j = len(data_j)*p_j
 
                 p = p_i / (p_i+p_j)
                 r = RandUnifGenerator.rvs(size=1)
                 if p>r:
                   cl[z]=self.__LabI
+                  res_prod=res_prod*p_i
                 else:
                   cl[z]=self.__C[j]
-            return cl      
+                  res_prod=res_prod*p_j
+            if use==0:        
+                return cl
+            else:
+                return cl,prod_res
           
         def __ProposalSwap(i,j):  
             
