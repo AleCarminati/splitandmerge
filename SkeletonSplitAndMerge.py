@@ -6,6 +6,8 @@
 
 import numpy as np
 import scipy.stats as ss
+import matplotlib.pyplot as plt
+import seaborn as sns
 import math
 
 class AbstractHierarchy(object):
@@ -61,19 +63,19 @@ class NNIGHierarchy(AbstractHierarchy):
 
     __k = ss.norm
     __P_0 = [ss.norm, ss.invgamma]
-    alpha= #da fissare
     
-    def __init__(self, mu0, lambda0, alpha0, beta0):
+    def __init__(self, mu0, lambda0, alpha0, beta0, alpha):
         self.__mu0 = mu0
         self.__lambda0 = lambda0
         self.__alpha0 = alpha0
         self.__beta0 = beta0
+        self.alpha = alpha
 
     def sample_prior(self, size=1):
         sigmasq = self.__P_0[1].rvs(self.__alpha0, scale=self.__beta0, \
             size=size)
         mu = self.__P_0[0].rvs(loc=np.full(size, self.__mu0), \
-            scale=sigmasq/self.lambda0)
+            scale=sigmasq/self.__lambda0)
         return [mu, sigmasq]
 
     def compute_posterior_hypers(self, data):
@@ -108,16 +110,20 @@ class SplitAndMerge(object):
         
         #private methods 
         def __ComputeS(self,i,j):
-           self.__S=np.array()  # set S
-           for k in range(len(X)):
-               if (((self.__C[k]==self.__C[i]) or (self.__C[k]==self.__C[j])) and(k!=i) and (k!=j)):
-                   self.__S.add(k)        
+            lengthS = np.logical_or((self.__C==self.__C[i]),\
+                (self.__C==self.__C[j])).sum()-2  
+            self.__S=np.empty(lengthS, dtype=int)  # set S
+            index = 0
+            for k in range(len(self.__X)):
+                if (((self.__C[k]==self.__C[i]) or (self.__C[k]==self.__C[j])) and(k!=i) and (k!=j)):
+                    self.__S[index] = k
+                    index += 1
                    
         def __Claunch(self,i,j):
             if i==j:
                 self.__LabI=np.amax(self.__C)+1 #it's useful to record the new label of i at this point
             else:
-                self.__LabI=C[i]
+                self.__LabI=self.__C[i]
 
             cl=np.full(len(self.__S), self.__LabI)
             random_assignment = ss.bernoulli.rvs(0.5, size=len(self.__S))
@@ -136,30 +142,30 @@ class SplitAndMerge(object):
                     if k!=i and k!=j and (k in self.__S):
                         clSplit[k]=self.__cl[z]
                         z=z+1
-                     else:
-                         if k!=i and k!=j and !(k in self.__S):
-                             clSplit[k]=C[k]
+                    else:
+                        if k!=i and k!=j and not(k in self.__S):
+                            clSplit[k]=C[k]
                 p1=1/q
                 p2=math.factorial((len(clSplit==self.__LabI)-1))*math.factorial((len(clSplit==j)-1))/math.factorial((len(self.__S)-1))*alpha
                 
                 indexes_i = [clSplit==self.__LabI]
                 data_i = self.__X[indexes_i] 
                 p_i=1
-                for z in [clSplit==self.__LabI]           
+                for z in [clSplit==self.__LabI]:           
                     prob = self.__hierarchy.conditional_pred_lpdf(\
                     self.__X[z], data_i)
                     p_i=p_i*prob
                 indexes_j = [clSplit==j]
                 data_j = self.__X[indexes_j] 
                 p_j=1
-                for z in [clSplit==j]           
+                for z in [clSplit==j]:           
                     prob = self.__hierarchy.conditional_pred_lpdf(\
                     self.__X[z], data_j)
                     p_j=p_j*prob
                 indexes_i =[self.__C==self.__LabI]
                 data_i = self.__X[indexes_i] 
                 P_i=1
-                for z in indexes_i          
+                for z in indexes_i:          
                     prob = self.__hierarchy.conditional_pred_lpdf(\
                     self.__X[z], data_i)
                     P_i=P_i*prob
@@ -167,21 +173,20 @@ class SplitAndMerge(object):
                 
                 AcRa=p1*p2*p3 #acceptance ratio 
                 res=self.__MH(AcRa)
-                if res=True:
+                if res==True:
                     return clSplit
                 else:
                     return self.__C
-                
-             else:
-                clMerge=np.array(ndmi=len(self.__C))  
+            else:
+                clMerge=np.empty(len(self.__C))  
                 clMerge[i]=self.__C[j]
                 clMerge[j]=self.__C[j]
                 for k in range(len(clMerge)-1):                    
                     if k!=i and k!=j and (k in self.__S):
                         clMerge[k]=self.__C[j]
-                     else:
-                         if k!=i and k!=j and !(k in self.__S):
-                             clMerge[k]=C[k]
+                    else:
+                        if k!=i and k!=j and not(k in self.__S):
+                            clMerge[k]=C[k]
                 
                 v=np.array(ndmi=len(cl))
                 v=cl
@@ -201,21 +206,21 @@ class SplitAndMerge(object):
                 indexes_i =[clMerge==j]
                 data_i = self.__X[indexes_i] 
                 P_i=1
-                for z in indexes_i          
+                for z in indexes_i:          
                     prob = self.__hierarchy.conditional_pred_lpdf(\
                     self.__X[z], data_i)
                     P_i=P_i*prob
                 indexes_i = [self.__C==self.__LabI]
                 data_i = self.__X[indexes_i] 
                 p_i=1
-                for z in indexes_i          
+                for z in indexes_i:          
                     prob = self.__hierarchy.conditional_pred_lpdf(\
                     self.__X[z], data_i)
                     p_i=p_i*prob
                 indexes_j = [self.__C==j]
                 data_j = self.__X[indexes_j] 
                 p_j=1
-                for z in indexes_j          
+                for z in indexes_j:          
                     prob = self.__hierarchy.conditional_pred_lpdf(\
                     self.__X[z], data_j)
                     p_j=p_j*prob
@@ -225,7 +230,7 @@ class SplitAndMerge(object):
                 AcRa=p1*p2*p3 #acceptance ratio
                                
                 res=self.__MH(AcRa)
-                if res=True:
+                if res==True:
                     return clMerge
                 else:
                     return self.__C
@@ -239,14 +244,14 @@ class SplitAndMerge(object):
                 return False
             
         def __FullGS():
-                
+            pass
             
-        def __RestrGS(cl,j,use=0): #use!=0 to use the function in SplitOrMerge, in order to report also res_prod
+        def __RestrGS(self, cl,j,use=0): #use!=0 to use the function in SplitOrMerge, in order to report also res_prod
             """Compute a single step of the restricted Gibbs Sampling."""
             res_prod=1 #is the probability to have the current vector of state cl
             RandUnifGenerator=ss.uniform(0,1)
             for z in range(len(self.__S)):
-                indexes_i = self.__S[cl==self.__LabI]. 
+                indexes_i = self.__S[cl==self.__LabI]
                 data_i = self.__X[indexes_i] 
                 p_i = self.__hierarchy.conditional_pred_lpdf(\
                     self.__X[self.__S[z]], data_i)
@@ -271,7 +276,8 @@ class SplitAndMerge(object):
             else:
                 return cl,prod_res
           
-        def __ProposalSwap(i,j):  
+        def __ProposalSwap(i,j):
+            pass  
             
         #public methods
         def __init__(self,X,C, abstractHierarchy):
@@ -281,19 +287,39 @@ class SplitAndMerge(object):
             self.__hierarchy = abstractHierarchy
                           
         def SplitAndMergeAlgo(self,T,K,M,N=2000):
-            matrix=np.array(ndim=N)
+            matrix=np.empty((N, len(self.__X)))
             for n in range(N):
                 for k in range(K):
-                    RandIntGenerator=ss.randint(0,len(X)) #generate a random number between 0-len(X)-1
+                    RandIntGenerator=ss.randint(0,len(self.__X)) #generate a random number between 0-len(X)-1
                     r = RandIntGenerator.rvs(size=2)  # i and j indeces
                     self.__ComputeS(r[0],r[1])
                     cl=self.__Claunch(r[0],r[1])
                     for k in range(T):
                         cl = self.__RestrGS(cl,r[1])
-                    self.__C=self.SplitOrMerge(cl,i,j)
+                    self.__C=self.__SplitOrMerge(cl,r[0],r[1])
                     
                 for m in range(M):
                     self.__C=FullGS()
                 
-                matrix[n].add(self.__C)
+                matrix[n, :] = self.__C.copy()
                
+
+
+# This snippet of code generates the data and calls the algorithm, to test it.
+n_clusters = 10
+data_size = 5000
+distribution = NNIGHierarchy(0, 0.0001, 100, 1, 1)
+parameters = distribution.sample_prior(size=n_clusters)
+parameters = np.column_stack(parameters)
+
+parameters_choice = np.random.default_rng().choice(parameters, size=data_size)
+data = ss.norm.rvs(loc =parameters_choice[:,0], scale =parameters_choice[:,1])
+
+# These two lines save a plot of the data.
+#sns.kdeplot(data)
+#plt.savefig("data.png")
+
+labels = np.full(data_size, 1)
+
+labels_samples = SplitAndMerge(data, labels, distribution).\
+    SplitAndMergeAlgo(5, 1, 1)
