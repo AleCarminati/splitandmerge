@@ -243,9 +243,36 @@ class SplitAndMerge(object):
             else:
                 return False
             
-        def __FullGS():
-            pass
-            
+        def __FullGS(self):
+            '''Compute a single step of full Gibbs sampling on the cluster
+            labels.
+            '''
+            import time
+
+            for i in range(len(self.__C)):
+                unique_labels = np.unique(self.__C)
+                unique_labels = np.append(unique_labels, max(unique_labels)+1)
+                labels_prob = np.empty(len(unique_labels))
+                X_without_i = np.delete(self.__X,i)
+                C_without_i = np.delete(self.__C,i)
+                for j in range(len(unique_labels)):
+                    label = unique_labels[j]
+                    # Note: np.delete deletes from a copy of the array, not 
+                    # from the original array. 
+                    data_cluster = X_without_i[C_without_i==label]
+                    n_cluster = len(data_cluster)
+                    if n_cluster != 0:
+                        labels_prob[j] = n_cluster * \
+                            self.__hierarchy.conditional_pred_lpdf(\
+                                self.__X[i], data_cluster)
+                    else:
+                        labels_prob[j] = self.__hierarchy.prior_pred_lpdf(\
+                            self.__X[i])
+                
+                labels_prob = labels_prob / labels_prob.sum()
+                self.__C[i] = np.random.default_rng().choice(unique_labels, \
+                    p = labels_prob)
+                
         def __RestrGS(self, cl,j,use=0): #use!=0 to use the function in SplitOrMerge, in order to report also res_prod
             """Compute a single step of the restricted Gibbs Sampling."""
             res_prod=1 #is the probability to have the current vector of state cl
@@ -276,7 +303,7 @@ class SplitAndMerge(object):
             else:
                 return cl,prod_res
           
-        def __ProposalSwap(i,j):
+        def __ProposalSwap(self, i,j):
             pass  
             
         #public methods
@@ -287,7 +314,9 @@ class SplitAndMerge(object):
             self.__hierarchy = abstractHierarchy
                           
         def SplitAndMergeAlgo(self,T,K,M,N=2000):
-            matrix=np.empty((N, len(self.__X)))
+            print("Starting Split and Merge Algorithm!")
+            print(f"Iteration: 0/{N}", end="\r")
+            matrix=np.empty((N, len(self.__X)), dtype=int)
             for n in range(N):
                 for k in range(K):
                     RandIntGenerator=ss.randint(0,len(self.__X)) #generate a random number between 0-len(X)-1
@@ -296,18 +325,23 @@ class SplitAndMerge(object):
                     cl=self.__Claunch(r[0],r[1])
                     for k in range(T):
                         cl = self.__RestrGS(cl,r[1])
-                    self.__C=self.__SplitOrMerge(cl,r[0],r[1])
+                    self.__C=self.__SplitOrMerge(cl,i,j)
                     
                 for m in range(M):
-                    self.__C=FullGS()
+                    self.__FullGS()
                 
                 matrix[n, :] = self.__C.copy()
+
+                print(f"Iteration: {n+1}/{N}", end="\r")
+
+            print("Completed!")
+            return matrix
                
 
 
 # This snippet of code generates the data and calls the algorithm, to test it.
 n_clusters = 10
-data_size = 5000
+data_size = 100
 distribution = NNIGHierarchy(0, 0.0001, 100, 1, 1)
 parameters = distribution.sample_prior(size=n_clusters)
 parameters = np.column_stack(parameters)
@@ -322,4 +356,8 @@ data = ss.norm.rvs(loc =parameters_choice[:,0], scale =parameters_choice[:,1])
 labels = np.full(data_size, 1)
 
 labels_samples = SplitAndMerge(data, labels, distribution).\
-    SplitAndMergeAlgo(5, 1, 1)
+    SplitAndMergeAlgo(5, 1, 1, N=100)
+
+print(labels_samples)
+
+# TODO: compute the cluster estimate from the result of the MCMC chain.
