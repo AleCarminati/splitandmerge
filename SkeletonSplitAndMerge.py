@@ -132,7 +132,7 @@ class SplitAndMerge(object):
             
         def __SplitOrMerge(self,cl,i,j):
             if i==j:
-                clSplit=np.array(ndmi=len(self.__C)) 
+                clSplit=np.empty(shape=len(self.__C)) 
                 #we keep the reference of the indeces of C
                 clSplit[i]=self.__LabI
                 clSplit[j]=self.__C[j]
@@ -188,7 +188,7 @@ class SplitAndMerge(object):
                         if k!=i and k!=j and not(k in self.__S):
                             clMerge[k]=C[k]
                 
-                v=np.array(ndmi=len(cl))
+                v=np.empty(shape=len(cl))
                 v=cl
                 q=1
                 for z in range(len(self.__S)):   #fake gibs sampling to compute q(c/cMerge) 
@@ -323,7 +323,7 @@ class SplitAndMerge(object):
                     cl=self.__Claunch(r[0],r[1])
                     for k in range(T):
                         cl = self.__RestrGS(cl,r[1])
-                    self.__C=self.__SplitOrMerge(cl,i,j)
+                    self.__C=self.__SplitOrMerge(cl,r[0],r[1])
                     
                 for m in range(M):
                     self.__FullGS()
