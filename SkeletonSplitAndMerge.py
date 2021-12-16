@@ -247,8 +247,6 @@ class SplitAndMerge(object):
             '''Compute a single step of full Gibbs sampling on the cluster
             labels.
             '''
-            import time
-
             for i in range(len(self.__C)):
                 unique_labels = np.unique(self.__C)
                 unique_labels = np.append(unique_labels, max(unique_labels)+1)
