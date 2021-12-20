@@ -120,7 +120,7 @@ class SplitAndMerge(object):
                     index += 1
                    
         def __Claunch(self,i,j):
-            if i==j:
+            if self.__C[i]==self.__C[j]:
                 self.__LabI=np.amax(self.__C)+1 #it's useful to record the new label of i at this point
             else:
                 self.__LabI=self.__C[i]
@@ -186,7 +186,7 @@ class SplitAndMerge(object):
                         clMerge[k]=self.__C[j]
                     else:
                         if k!=i and k!=j and not(k in self.__S):
-                            clMerge[k]=C[k]
+                            clMerge[k]=self.__C[k]
                 
                 v=np.empty(shape=len(cl))
                 v=cl
@@ -201,7 +201,7 @@ class SplitAndMerge(object):
                    q=q*p_i
                 
                 p1=q
-                p2=math.factorial(len(self.__S)-1)/(math.factorial(len(self.__C==self.__LabI))*math.factorial(len(self.__C==j)))*(1/alpha)
+                p2=math.factorial(len(self.__S)-1)/(math.factorial(len(self.__C==self.__LabI))*math.factorial(len(self.__C==j)))*(1/self.__hierarchy.alpha)
                 
                 indexes_i =[clMerge==j]
                 data_i = self.__X[indexes_i] 
@@ -235,7 +235,7 @@ class SplitAndMerge(object):
                 else:
                     return self.__C
                 
-        def __MH(AcRa):   
+        def __MH(self, AcRa):   
             RandUnifGenerator=ss.uniform(0,1)
             r = RandUnifGenerator.rvs(size=1)
             if r<=AcRa:
@@ -336,26 +336,63 @@ class SplitAndMerge(object):
             return matrix
                
 
+def cluster_estimate(chain_result):
+    """Compute the cluster estimate starting from the result of a chain.
 
-# This snippet of code generates the data and calls the algorithm, to test it.
-n_clusters = 10
-data_size = 100
-distribution = NNIGHierarchy(0, 0.0001, 100, 1, 1)
-parameters = distribution.sample_prior(size=n_clusters)
-parameters = np.column_stack(parameters)
+    Input:
+    chain_result -- A bidimensional Numpy array. Each row represents an 
+                    iteration of the chain.
 
-parameters_choice = np.random.default_rng().choice(parameters, size=data_size)
-data = ss.norm.rvs(loc =parameters_choice[:,0], scale =parameters_choice[:,1])
+    Output:
+    estimate -- A Numpy array that contains the final cluster estimate.
 
-# These two lines save a plot of the data.
-#sns.kdeplot(data)
-#plt.savefig("data.png")
+    Notes: the code has been copied and adapted from the homonymous function 
+    in library bayesmix.  
+    """
+    n_iter = chain_result.shape[0]
+    n_data = chain_result.shape[1]
+    mean_diss = np.zero((n_data, n_data))
+    for i in range(n_data):
+        for j in range(i-1):
+            mean_diss[i,j] = (chain_result[:,i]==chain_result[:,j]).sum()
+            mean_diss[j,i] = mean_diss[i,j]
+    mean_diss = mean_diss/n_iter
 
-labels = np.full(data_size, 1)
+    errors = np.empty(n_iter)
+    for k in range(n_iter):
+        x = np.empty((n_data, n_data))
+        for i in range(n_data):
+            x[i,:] = chain_result[k,:]==chain_result[k,i]
+        errors[k] = ((x-mean_diss)**2)/2
 
-labels_samples = SplitAndMerge(data, labels, distribution).\
-    SplitAndMergeAlgo(5, 1, 1, N=100)
+    return (chain_result[errors==errors.min(),:])[0, :]
 
-print(labels_samples)
+if __name__ == "__main__":
+    # This snippet of code generates the data and calls the algorithm.
+    n_clusters = 10
+    data_size = 100
+    distribution = NNIGHierarchy(0, 0.0001, 100, 1, 1)
+    parameters = distribution.sample_prior(size=n_clusters)
+    parameters = np.column_stack(parameters)
 
-# TODO: compute the cluster estimate from the result of the MCMC chain.
+    parameters_choice = np.random.default_rng().choice(parameters,\
+        size=data_size)
+    data = ss.norm.rvs(loc =parameters_choice[:,0],\
+        scale =parameters_choice[:,1])
+
+    # These two lines save a plot of the data.
+    #sns.kdeplot(data)
+    #plt.savefig("data.png")
+
+    labels = np.full(data_size, 1)
+
+    labels_samples = SplitAndMerge(data, labels, distribution).\
+        SplitAndMergeAlgo(5, 1, 1, N=100)
+
+    print(labels_samples)
+
+    clust_estimate = cluster_estimate(labels_samples)
+
+    # These two lines save a plot of the data, clustered using Split&Merge.
+    #sns.kdeplot(data, hue=clust_estimate)
+    #plt.savefig("data_clustered.png")
