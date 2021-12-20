@@ -97,12 +97,14 @@ class NNIGHierarchy(AbstractHierarchy):
         return mu, sigmasq
 
     def prior_pred_lpdf(self, x):
-        return ss.t.pdf(x, 2*self.__alpha0, loc=self.__mu0,\
+        return ss.t.logpdf(x, 2*self.__alpha0, loc=self.__mu0,\
             scale =self.__beta0*(1+1/self.__lambda0)/self.__alpha0)
             
     def conditional_pred_lpdf(self, x, data):
+        if(len(data)==0):
+            raise Exception("Empty data array passed to conditional_pred_lpdf.")
         mu_n, lambda_n, alpha_n, beta_n = self.compute_posterior_hypers(data)
-        return ss.t.pdf(x, 2*alpha_n, loc=mu_n,\
+        return ss.t.logpdf(x, 2*alpha_n, loc=mu_n,\
             scale =beta_n*(1+1/lambda_n)/alpha_n)
 
 #Split and Merge Class
@@ -115,7 +117,11 @@ class SplitAndMerge(object):
             self.__S=np.empty(lengthS, dtype=int)  # set S
             index = 0
             for k in range(len(self.__X)):
-                if (((self.__C[k]==self.__C[i]) or (self.__C[k]==self.__C[j])) and(k!=i) and (k!=j)):
+                if ((self.__C[k]==self.__C[i]) or(self.__C[k]==self.__C[j]))\
+                    and(k!=i) and (k!=j):
+                    if index >= lengthS:
+                        raise Exception(f"Index out of bounds. index={index},\
+                        lengthS={lengthS} self.__C={self.__C}, i={i}, j={j}")
                     self.__S[index] = k
                     index += 1
                    
@@ -131,45 +137,45 @@ class SplitAndMerge(object):
             return cl       
             
         def __SplitOrMerge(self,cl,i,j):
-            if i==j:
+            if self.__C[i]==self.__C[j]:
                 clSplit=np.empty(shape=len(self.__C)) 
                 #we keep the reference of the indeces of C
                 clSplit[i]=self.__LabI
                 clSplit[j]=self.__C[j]
                 [cl,q]=self.__RestrGS(cl,j,1)
                 z=0
-                for k in range(len(clSplit)-1):                    
-                    if k!=i and k!=j and (k in self.__S):
-                        clSplit[k]=self.__cl[z]
+                for k in range(len(clSplit)):                    
+                    if k in self.__S:
+                        clSplit[k]=cl[z]
                         z=z+1
                     else:
                         if k!=i and k!=j and not(k in self.__S):
-                            clSplit[k]=C[k]
+                            clSplit[k]=self.__C[k]
                 p1=1/q
-                p2=math.factorial((len(clSplit==self.__LabI)-1))*math.factorial((len(clSplit==j)-1))/math.factorial((len(self.__S)-1))*alpha
+                p2=math.factorial(((clSplit==self.__LabI).sum()-1))*\
+                    math.factorial(((clSplit==self.__C[j]).sum()-1))/\
+                    math.factorial((len(self.__S)+2-1))*self.__hierarchy.alpha
                 
-                indexes_i = [clSplit==self.__LabI]
+                indexes_i = clSplit==self.__LabI
                 data_i = self.__X[indexes_i] 
-                p_i=1
-                for z in [clSplit==self.__LabI]:           
-                    prob = self.__hierarchy.conditional_pred_lpdf(\
-                    self.__X[z], data_i)
-                    p_i=p_i*prob
-                indexes_j = [clSplit==j]
+                p_i=0
+                for z in data_i:           
+                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_i)
+                    p_i+=prob
+                indexes_j = clSplit==self.__C[j]
                 data_j = self.__X[indexes_j] 
-                p_j=1
-                for z in [clSplit==j]:           
-                    prob = self.__hierarchy.conditional_pred_lpdf(\
-                    self.__X[z], data_j)
-                    p_j=p_j*prob
-                indexes_i =[self.__C==self.__LabI]
+                p_j=0
+
+                for z in data_j:           
+                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_j)
+                    p_j+=prob
+                indexes_i = self.__C==self.__C[j]
                 data_i = self.__X[indexes_i] 
-                P_i=1
-                for z in indexes_i:          
-                    prob = self.__hierarchy.conditional_pred_lpdf(\
-                    self.__X[z], data_i)
-                    P_i=P_i*prob
-                p3=p_i*p_j/P_i
+                P_i=0
+                for z in data_i:          
+                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_i)
+                    P_i+=prob
+                p3=math.exp(p_i+p_j-P_i)
                 
                 AcRa=p1*p2*p3 #acceptance ratio 
                 res=self.__MH(AcRa)
@@ -181,51 +187,56 @@ class SplitAndMerge(object):
                 clMerge=np.empty(len(self.__C))  
                 clMerge[i]=self.__C[j]
                 clMerge[j]=self.__C[j]
-                for k in range(len(clMerge)-1):                    
-                    if k!=i and k!=j and (k in self.__S):
+                for k in range(len(clMerge)):                    
+                    if k in self.__S:
                         clMerge[k]=self.__C[j]
                     else:
                         if k!=i and k!=j and not(k in self.__S):
                             clMerge[k]=self.__C[k]
                 
                 v=np.empty(shape=len(cl))
-                v=cl
+                v=cl.copy()
                 q=1
-                for z in range(len(self.__S)):   #fake gibs sampling to compute q(c/cMerge) 
-                   indexes_i = self.__S[v==self.__C[self.__S[z]]]
-                   data_i = self.__X[indexes_i] 
-                   p_i = self.__hierarchy.conditional_pred_lpdf(
-                     self.__X[self.__S[z]], data_i)
-                   p_i = len(data_i)*p_i
-                   v[z]=self.__C[self.__S[z]]
-                   q=q*p_i
+                for z in range(len(self.__S)):   #fake gibbs sampling to compute q(c/cMerge) 
+                    indexes_i = self.__S[v==self.__C[self.__S[z]]]
+                    data_i = self.__X[indexes_i] 
+                    if(len(data_i)==0):
+                        p_i = self.__hierarchy.prior_pred_lpdf(\
+                            self.__X[self.__S[z]])
+                        p_i = math.exp(p_i)
+                    else:
+                        p_i = self.__hierarchy.conditional_pred_lpdf(
+                            self.__X[self.__S[z]], data_i)
+                        p_i = len(data_i)*math.exp(p_i)
+                    v[z]=self.__C[self.__S[z]]
+                    q=q*p_i
                 
                 p1=q
-                p2=math.factorial(len(self.__S)-1)/(math.factorial(len(self.__C==self.__LabI))*math.factorial(len(self.__C==j)))*(1/self.__hierarchy.alpha)
+                p2=math.factorial(len(self.__S)+2-1)/\
+                    (math.factorial((self.__C==self.__LabI).sum())*\
+                    math.factorial((self.__C==self.__C[j]).sum()))*\
+                    (1/self.__hierarchy.alpha)
                 
-                indexes_i =[clMerge==j]
+                indexes_i = clMerge==self.__C[j]
                 data_i = self.__X[indexes_i] 
-                P_i=1
-                for z in indexes_i:          
-                    prob = self.__hierarchy.conditional_pred_lpdf(\
-                    self.__X[z], data_i)
-                    P_i=P_i*prob
-                indexes_i = [self.__C==self.__LabI]
+                P_i=0
+                for z in data_i:          
+                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_i)
+                    P_i+=prob
+                indexes_i = self.__C==self.__LabI
                 data_i = self.__X[indexes_i] 
-                p_i=1
-                for z in indexes_i:          
-                    prob = self.__hierarchy.conditional_pred_lpdf(\
-                    self.__X[z], data_i)
-                    p_i=p_i*prob
-                indexes_j = [self.__C==j]
+                p_i=0
+                for z in data_i:          
+                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_i)
+                    p_i+=prob
+                indexes_j = self.__C==j
                 data_j = self.__X[indexes_j] 
-                p_j=1
-                for z in indexes_j:          
-                    prob = self.__hierarchy.conditional_pred_lpdf(\
-                    self.__X[z], data_j)
-                    p_j=p_j*prob
+                p_j=0
+                for z in data_j:          
+                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_j)
+                    p_j+=prob
                     
-                p3=p_i*p_j/P_i
+                p3=math.exp(p_i+p_j-P_i)
                 
                 AcRa=p1*p2*p3 #acceptance ratio
                                
@@ -260,12 +271,12 @@ class SplitAndMerge(object):
                     data_cluster = X_without_i[C_without_i==label]
                     n_cluster = len(data_cluster)
                     if n_cluster != 0:
-                        labels_prob[j] = n_cluster * \
+                        labels_prob[j] = n_cluster * math.exp(\
                             self.__hierarchy.conditional_pred_lpdf(\
-                                self.__X[i], data_cluster)
+                                self.__X[i], data_cluster))
                     else:
-                        labels_prob[j] = self.__hierarchy.prior_pred_lpdf(\
-                            self.__X[i])
+                        labels_prob[j] = math.exp(\
+                            self.__hierarchy.prior_pred_lpdf(self.__X[i]))
                 
                 labels_prob = labels_prob / labels_prob.sum()
                 self.__C[i] = np.random.default_rng().choice(unique_labels, \
@@ -278,28 +289,39 @@ class SplitAndMerge(object):
             for z in range(len(self.__S)):
                 indexes_i = self.__S[cl==self.__LabI]
                 data_i = self.__X[indexes_i] 
-                p_i = self.__hierarchy.conditional_pred_lpdf(\
+                if(len(data_i)==0):
+                    p_i = self.__hierarchy.prior_pred_lpdf(\
+                        self.__X[self.__S[z]])
+                    p_i = math.exp(p_i)
+                else:
+                    p_i = self.__hierarchy.conditional_pred_lpdf(\
                     self.__X[self.__S[z]], data_i)
-                p_i = len(data_i)*p_i
+                    p_i = len(data_i)*math.exp(p_i)
+                
 
                 indexes_j = self.__S[cl==self.__C[j]]
-                data_j = self.__X[indexes_j] 
-                p_j = self.__hierarchy.conditional_pred_lpdf(\
-                    self.__X[self.__S[z]], data_j)
-                p_j = len(data_j)*p_j
+                data_j = self.__X[indexes_j]
+                if(len(data_j)==0):
+                    p_j = self.__hierarchy.prior_pred_lpdf(\
+                        self.__X[self.__S[z]])
+                    p_j = math.exp(p_j)
+                else: 
+                    p_j = self.__hierarchy.conditional_pred_lpdf(\
+                        self.__X[self.__S[z]], data_j)
+                    p_j = len(data_j)*math.exp(p_j)
 
                 p = p_i / (p_i+p_j)
                 r = RandUnifGenerator.rvs(size=1)
                 if p>r:
                   cl[z]=self.__LabI
-                  res_prod=res_prod*p_i
+                  res_prod=res_prod*p
                 else:
                   cl[z]=self.__C[j]
-                  res_prod=res_prod*p_j
+                  res_prod=res_prod*(1-p)
             if use==0:        
                 return cl
             else:
-                return cl,prod_res
+                return cl, res_prod
           
         def __ProposalSwap(self, i,j):
             pass  
@@ -319,6 +341,8 @@ class SplitAndMerge(object):
                 for k in range(K):
                     RandIntGenerator=ss.randint(0,len(self.__X)) #generate a random number between 0-len(X)-1
                     r = RandIntGenerator.rvs(size=2)  # i and j indeces
+                    while r[0]==r[1]:
+                        r = RandIntGenerator.rvs(size=2)
                     self.__ComputeS(r[0],r[1])
                     cl=self.__Claunch(r[0],r[1])
                     for k in range(T):
@@ -351,7 +375,7 @@ def cluster_estimate(chain_result):
     """
     n_iter = chain_result.shape[0]
     n_data = chain_result.shape[1]
-    mean_diss = np.zero((n_data, n_data))
+    mean_diss = np.zeros((n_data, n_data))
     for i in range(n_data):
         for j in range(i-1):
             mean_diss[i,j] = (chain_result[:,i]==chain_result[:,j]).sum()
@@ -363,36 +387,48 @@ def cluster_estimate(chain_result):
         x = np.empty((n_data, n_data))
         for i in range(n_data):
             x[i,:] = chain_result[k,:]==chain_result[k,i]
-        errors[k] = ((x-mean_diss)**2)/2
+        errors[k] = ((x-mean_diss)**2).sum()/2
 
     return (chain_result[errors==errors.min(),:])[0, :]
 
 if __name__ == "__main__":
     # This snippet of code generates the data and calls the algorithm.
-    n_clusters = 10
+    n_clusters = 5
     data_size = 100
-    distribution = NNIGHierarchy(0, 0.0001, 100, 1, 1)
+    distribution = NNIGHierarchy(0, 0.1, 100, 1, 1)
     parameters = distribution.sample_prior(size=n_clusters)
     parameters = np.column_stack(parameters)
 
-    parameters_choice = np.random.default_rng().choice(parameters,\
-        size=data_size)
-    data = ss.norm.rvs(loc =parameters_choice[:,0],\
-        scale =parameters_choice[:,1])
+    parameters_choice = np.random.default_rng().integers(0,\
+        high=(n_clusters-1), size=data_size)
+    #parameters_choice = np.random.default_rng().choice(parameters,\
+    #    size=data_size)
+    #data = ss.norm.rvs(loc =parameters_choice[:,0],\
+    #    scale =parameters_choice[:,1])
+
+    data = ss.norm.rvs(loc =parameters[parameters_choice,0],\
+        scale = parameters[parameters_choice,1])
 
     # These two lines save a plot of the data.
-    #sns.kdeplot(data)
-    #plt.savefig("data.png")
+    sns.kdeplot(x=data, hue=parameters_choice)
+    plt.savefig("data.png")
+    plt.close()
 
-    labels = np.full(data_size, 1)
+    labels = np.full(data_size, 1, dtype=int)
 
     labels_samples = SplitAndMerge(data, labels, distribution).\
         SplitAndMergeAlgo(5, 1, 1, N=100)
 
-    print(labels_samples)
+    # TODO: plot the number of different clusters for each iteration of the
+    # chain.
+    # n_clusters_samples = np.apply_along_axis(lambda x: len(np.unique(x)), 0, labels_samples)
+    # sns.scatterplot(n_clusters_samples)
+    # plt.savefig("n_clusters.png")
+    # plt.close()
 
     clust_estimate = cluster_estimate(labels_samples)
 
     # These two lines save a plot of the data, clustered using Split&Merge.
-    #sns.kdeplot(data, hue=clust_estimate)
-    #plt.savefig("data_clustered.png")
+    sns.kdeplot(data, hue=clust_estimate)
+    plt.savefig("data_clustered.png")
+    plt.close()
