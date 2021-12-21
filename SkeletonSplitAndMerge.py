@@ -76,6 +76,9 @@ class NNIGHierarchy(AbstractHierarchy):
             size=size)
         mu = self.__P_0[0].rvs(loc=np.full(size, self.__mu0), \
             scale=sigmasq/self.__lambda0)
+        print(f"{mu}")
+        print("......")
+        print(f"{sigmasq}")
         return [mu, sigmasq]
 
     def compute_posterior_hypers(self, data):
@@ -159,25 +162,34 @@ class SplitAndMerge(object):
                 indexes_i = clSplit==self.__LabI
                 data_i = self.__X[indexes_i] 
                 p_i=0
-                for z in data_i:           
-                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_i)
+                for k,z in enumerate(data_i):    
+                    if(k==0): #first iteration
+                        prob=self.__hierarchy.prior_pred_lpdf(z)
+                    else:   
+                        prob = self.__hierarchy.conditional_pred_lpdf(z, data_i[0:k])
                     p_i+=prob
                 indexes_j = clSplit==self.__C[j]
                 data_j = self.__X[indexes_j] 
                 p_j=0
 
-                for z in data_j:           
-                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_j)
+                for k,z in enumerate(data_j):   
+                    if(k==0): #first iteration
+                        prob=self.__hierarchy.prior_pred_lpdf(z)
+                    else:   
+                        prob = self.__hierarchy.conditional_pred_lpdf(z, data_j[0:k])
                     p_j+=prob
                 indexes_i = self.__C==self.__C[j]
                 data_i = self.__X[indexes_i] 
                 P_i=0
-                for z in data_i:          
-                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_i)
+                for k,z in enumerate(data_i):   
+                    if(k==0): #first iteration
+                        prob=self.__hierarchy.prior_pred_lpdf(z)
+                    else:   
+                        prob = self.__hierarchy.conditional_pred_lpdf(z, data_i[0:k])
                     P_i+=prob
                 p3=math.exp(p_i+p_j-P_i)
                 
-                AcRa=p1*p2*p3 #acceptance ratio 
+                AcRa=min(1,p1*p2*p3) #acceptance ratio 
                 res=self.__MH(AcRa)
                 if res==True:
                     return clSplit
@@ -219,26 +231,36 @@ class SplitAndMerge(object):
                 
                 indexes_i = clMerge==self.__C[j]
                 data_i = self.__X[indexes_i] 
-                P_i=0
-                for z in data_i:          
-                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_i)
+                P_i=0              
+                for k,z in enumerate(data_i):
+                    if(k==0): #first iteration
+                        prob=self.__hierarchy.prior_pred_lpdf(z)
+                    else:   
+                        prob = self.__hierarchy.conditional_pred_lpdf(z, data_i[0:k])
                     P_i+=prob
                 indexes_i = self.__C==self.__LabI
+                        
                 data_i = self.__X[indexes_i] 
                 p_i=0
-                for z in data_i:          
-                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_i)
+                for k,z in enumerate(data_i): 
+                    if(k==0): #first iteration
+                        prob=self.__hierarchy.prior_pred_lpdf(z)
+                    else:   
+                        prob = self.__hierarchy.conditional_pred_lpdf(z, data_i[0:k])
                     p_i+=prob
-                indexes_j = self.__C==j
+                indexes_j = self.__C==self.__C[j]
                 data_j = self.__X[indexes_j] 
                 p_j=0
-                for z in data_j:          
-                    prob = self.__hierarchy.conditional_pred_lpdf(z, data_j)
+                for k,z in enumerate(data_j):          
+                    if(k==0): #first iteration
+                        prob=self.__hierarchy.prior_pred_lpdf(z)
+                    else:   
+                        prob = self.__hierarchy.conditional_pred_lpdf(z, data_j[0:k])
                     p_j+=prob
                     
                 p3=math.exp(p_i+p_j-P_i)
                 
-                AcRa=p1*p2*p3 #acceptance ratio
+                AcRa=min(1,p1*p2*p3)#acceptance ratio
                                
                 res=self.__MH(AcRa)
                 if res==True:
@@ -395,7 +417,7 @@ if __name__ == "__main__":
     # This snippet of code generates the data and calls the algorithm.
     n_clusters = 5
     data_size = 100
-    distribution = NNIGHierarchy(0, 0.1, 100, 1, 1)
+    distribution = NNIGHierarchy(0, 0.01, 100, 100, 1)
     parameters = distribution.sample_prior(size=n_clusters)
     parameters = np.column_stack(parameters)
 
@@ -417,7 +439,7 @@ if __name__ == "__main__":
     labels = np.full(data_size, 1, dtype=int)
 
     labels_samples = SplitAndMerge(data, labels, distribution).\
-        SplitAndMergeAlgo(5, 1, 1, N=100)
+        SplitAndMergeAlgo(5, 1, 1, N=10000)
 
     # TODO: plot the number of different clusters for each iteration of the
     # chain.
