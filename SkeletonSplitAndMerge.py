@@ -115,11 +115,13 @@ class SplitAndMerge(object):
         
         #private methods 
         def __ComputeS(self,i,j):
-            lengthS = np.logical_or((self.__C==self.__C[i]),\
-                (self.__C==self.__C[j])).sum()-2  
+            vec_i=np.repeat(self.__C[i],len(self.__C))
+            vec_j=np.repeat(self.__C[j],len(self.__C))
+            lengthS = np.logical_or((self.__C==vec_i),\
+                (self.__C==vec_j)).sum()-2    
             self.__S=np.empty(lengthS, dtype=int)  # set S
             index = 0
-            for k in range(len(self.__X)):
+            for k in range(len(self.__C)):
                 if ((self.__C[k]==self.__C[i]) or(self.__C[k]==self.__C[j]))\
                     and(k!=i) and (k!=j):
                     if index >= lengthS:
