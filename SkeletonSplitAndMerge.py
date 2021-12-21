@@ -10,6 +10,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import math
 
+# Command to set the random seed to a fixed value for reproducibility of the
+# experiments.
+rng = np.random.default_rng(265815667228932327047115325544902682949)
+
+# Command to set the random seed to a casual value
+# rng = np.random.default_rng(np.random.SeedSequence().entropy)
+
 class AbstractHierarchy(object):
     """Abstract class that represents the mixture model.
 
@@ -73,31 +80,37 @@ class NNIGHierarchy(AbstractHierarchy):
 
     def sample_prior(self, size=1):
         sigmasq = self.__P_0[1].rvs(self.__alpha0, scale=self.__beta0, \
-            size=size)
+            size=size, random_state=rng)
         mu = self.__P_0[0].rvs(loc=np.full(size, self.__mu0), \
+<<<<<<< Updated upstream
             scale=sigmasq/self.__lambda0)
         print(f"{mu}")
         print("......")
         print(f"{sigmasq}")
         return [mu, sigmasq]
+=======
+            scale=sigmasq/self.__lambda0, size=size, random_state=rng)
+        return np.column_stack((mu, sigmasq))
+>>>>>>> Stashed changes
 
     def compute_posterior_hypers(self, data):
         n = len(data)
         mu_n = self.__lambda0/(self.__lambda0+n)*self.__mu0 + \
             n/(self.__lambda0+n)*data.mean()
         alpha_n = self.__alpha0 + n/2
-        beta_n = self.__beta0 + 0.5*data.var()*n+ \
-            0.5*n*self.__lambda0/(n+self.__lambda0)*(-data.mean())**2
+        beta_n = self.__beta0 + 0.5*data.var()*n+0.5*n*self.__lambda0\
+            /(n+self.__lambda0)*(self.__mu0-data.mean())**2
         return mu_n, self.__lambda0, alpha_n, beta_n
 
     def sample_full_conditional(self, data, size=1):
         mu_n, lambda_n, alpha_n, beta_n = self.compute_posterior_hypers(data)
 
-        sigmasq = self.__P_0[1].rvs(alpha_n, scale= beta_n, size=size)
+        sigmasq = self.__P_0[1].rvs(alpha_n, scale= beta_n, size=size,\
+            random_state=rng)
         mu = self.__P_0[0].rvs(loc=np.full(size, mu_n),\
-            scale=sigmasq/lambda_n)
+            scale=sigmasq/lambda_n, random_state=rng)
 
-        return mu, sigmasq
+        return np.column_stack((mu, sigmasq))
 
     def prior_pred_lpdf(self, x):
         return ss.t.logpdf(x, 2*self.__alpha0, loc=self.__mu0,\
@@ -137,7 +150,8 @@ class SplitAndMerge(object):
                 self.__LabI=self.__C[i]
 
             cl=np.full(len(self.__S), self.__LabI)
-            random_assignment = ss.bernoulli.rvs(0.5, size=len(self.__S))
+            random_assignment = ss.bernoulli.rvs(0.5, size=len(self.__S),\
+                random_state = rng)
             cl[random_assignment==1] = self.__C[j]
             return cl       
             
@@ -272,7 +286,7 @@ class SplitAndMerge(object):
                 
         def __MH(self, AcRa):   
             RandUnifGenerator=ss.uniform(0,1)
-            r = RandUnifGenerator.rvs(size=1)
+            r = RandUnifGenerator.rvs(size=1, random_state=rng)
             if r<=AcRa:
                 return True
             else:
@@ -303,7 +317,7 @@ class SplitAndMerge(object):
                             self.__hierarchy.prior_pred_lpdf(self.__X[i]))
                 
                 labels_prob = labels_prob / labels_prob.sum()
-                self.__C[i] = np.random.default_rng().choice(unique_labels, \
+                self.__C[i] = rng.choice(unique_labels, \
                     p = labels_prob)
                 
         def __RestrGS(self, cl,j,use=0): #use!=0 to use the function in SplitOrMerge, in order to report also res_prod
@@ -335,7 +349,7 @@ class SplitAndMerge(object):
                     p_j = len(data_j)*math.exp(p_j)
 
                 p = p_i / (p_i+p_j)
-                r = RandUnifGenerator.rvs(size=1)
+                r = RandUnifGenerator.rvs(size=1, random_state = rng)
                 if p>r:
                   cl[z]=self.__LabI
                   res_prod=res_prod*p
@@ -364,7 +378,7 @@ class SplitAndMerge(object):
             for n in range(N):
                 for k in range(K):
                     RandIntGenerator=ss.randint(0,len(self.__X)) #generate a random number between 0-len(X)-1
-                    r = RandIntGenerator.rvs(size=2)  # i and j indeces
+                    r = RandIntGenerator.rvs(size=2, random_state = rng)  # i and j indeces
                     while r[0]==r[1]:
                         r = RandIntGenerator.rvs(size=2)
                     self.__ComputeS(r[0],r[1])
@@ -421,17 +435,16 @@ if __name__ == "__main__":
     data_size = 100
     distribution = NNIGHierarchy(0, 0.01, 100, 100, 1)
     parameters = distribution.sample_prior(size=n_clusters)
-    parameters = np.column_stack(parameters)
 
-    parameters_choice = np.random.default_rng().integers(0,\
-        high=(n_clusters-1), size=data_size)
-    #parameters_choice = np.random.default_rng().choice(parameters,\
+    parameters_choice = rng.integers(0, high=(n_clusters-1),\
+        size=data_size)
+    #parameters_choice = rng.choice(parameters,\
     #    size=data_size)
     #data = ss.norm.rvs(loc =parameters_choice[:,0],\
     #    scale =parameters_choice[:,1])
 
     data = ss.norm.rvs(loc =parameters[parameters_choice,0],\
-        scale = parameters[parameters_choice,1])
+        scale = parameters[parameters_choice,1], random_state = rng)
 
     # These two lines save a plot of the data.
     sns.kdeplot(x=data, hue=parameters_choice)
@@ -453,6 +466,6 @@ if __name__ == "__main__":
     clust_estimate = cluster_estimate(labels_samples)
 
     # These two lines save a plot of the data, clustered using Split&Merge.
-    sns.kdeplot(data, hue=clust_estimate)
+    sns.kdeplot(data, hue=clust_estimate, legend=False)
     plt.savefig("data_clustered.png")
     plt.close()
