@@ -82,16 +82,11 @@ class NNIGHierarchy(AbstractHierarchy):
         sigmasq = self.__P_0[1].rvs(self.__alpha0, scale=self.__beta0, \
             size=size, random_state=rng)
         mu = self.__P_0[0].rvs(loc=np.full(size, self.__mu0), \
-<<<<<<< Updated upstream
-            scale=sigmasq/self.__lambda0)
+            scale=sigmasq/self.__lambda0, size=size, random_state=rng)
         print(f"{mu}")
         print("......")
         print(f"{sigmasq}")
-        return [mu, sigmasq]
-=======
-            scale=sigmasq/self.__lambda0, size=size, random_state=rng)
         return np.column_stack((mu, sigmasq))
->>>>>>> Stashed changes
 
     def compute_posterior_hypers(self, data):
         n = len(data)
