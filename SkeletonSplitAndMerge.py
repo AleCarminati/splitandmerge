@@ -156,7 +156,7 @@ class SplitAndMerge(object):
                 #we keep the reference of the indeces of C
                 clSplit[i]=self.__LabI
                 clSplit[j]=self.__C[j]
-                [cl,q]=self.__RestrGS(cl,j,1)
+                [cl,q]=self.__RestrGS(cl,i,j,1)
                 z=0
                 for k in range(len(clSplit)):                    
                     if k in self.__S:
@@ -314,34 +314,70 @@ class SplitAndMerge(object):
                 labels_prob = labels_prob / labels_prob.sum()
                 self.__C[i] = rng.choice(unique_labels, \
                     p = labels_prob)
+
+        def __ComputeRestrGSProbabilities(self, cl, i, j, \
+            z, cluster="i"):
+            """ Auxiliary function for __RestrGS.
+            Compute the UNNORMALIZED probabilities for a certain data point
+            to be in one of the two clusters considered in the restricted 
+            Gibbs sampling. 
+
+            Input:
+            cl -- A 1-D Numpy array which contains the cluster labels for the 
+                data points in S.
+            i -- The index (w.r.t. the entire dataset) of the first point 
+                selected for the Split&Merge step. 
+            j -- The index (w.r.t. the entire dataset) of the second point 
+                selected for the Split&Merge step.
+            z -- The index (w.r.t. set S) of the point for which the function 
+                is computing the probabilities.
+            cluster -- Takes only values "i" and "j". Label that marks which 
+                probability to return: the probability for the point indexed
+                by z to belong to the cluster proposed for i or to the
+                cluster proposed for j.
+
+            Output:
+            p -- The probability for the point indexed by z to belong to the
+                cluster proposed for i or to the cluster proposed for j 
+                (based on the value of input parameter 'cluster'). 
+            """
+            if cluster!='i' and cluster!='j':
+                raise Exception("Unexpected value for the parameter "+\
+                    "'cluster' of function __ComputeRestrGSProbabilities.")
+
+            label = 0
+            if cluster=='i':
+                label = self.__LabI
+            else:
+                label = self.__C[j]
+
+            indexes = self.__S[cl==label]
+            # Remove the considered point from the points used to compute
+            # the posterior. 
+            indexes = indexes[indexes!=self.__S[z]]
+            # Add to the data to consider for the posterior also i or j.
+            # This step must be done because cl does not contain i and j.
+            if cluster=='i':
+                indexes = np.append(indexes, i)
+            else:
+                indexes = np.append(indexes, j)
+            data = self.__X[indexes]
+
+            if(len(data)==0):
+                raise Exception("No data points in one of the two "+\
+                    "clusters considered for restricted Gibbs sampling. "+\
+                    "This is impossible, indeed there should always be at "+\
+                    "least i or j in the datapoints.")  
+            return len(data)*math.exp(self.__hierarchy.conditional_pred_lpdf(\
+                self.__X[self.__S[z]], data))
                 
-        def __RestrGS(self, cl,j,use=0): #use!=0 to use the function in SplitOrMerge, in order to report also res_prod
+        def __RestrGS(self, cl,i,j,use=0): #use!=0 to use the function in SplitOrMerge, in order to report also res_prod
             """Compute a single step of the restricted Gibbs Sampling."""
             res_prod=1 #is the probability to have the current vector of state cl
             RandUnifGenerator=ss.uniform(0,1)
             for z in range(len(self.__S)):
-                indexes_i = self.__S[cl==self.__LabI]
-                data_i = self.__X[indexes_i] 
-                if(len(data_i)==0):
-                    p_i = self.__hierarchy.prior_pred_lpdf(\
-                        self.__X[self.__S[z]])
-                    p_i = math.exp(p_i)
-                else:
-                    p_i = self.__hierarchy.conditional_pred_lpdf(\
-                    self.__X[self.__S[z]], data_i)
-                    p_i = len(data_i)*math.exp(p_i)
-                
-
-                indexes_j = self.__S[cl==self.__C[j]]
-                data_j = self.__X[indexes_j]
-                if(len(data_j)==0):
-                    p_j = self.__hierarchy.prior_pred_lpdf(\
-                        self.__X[self.__S[z]])
-                    p_j = math.exp(p_j)
-                else: 
-                    p_j = self.__hierarchy.conditional_pred_lpdf(\
-                        self.__X[self.__S[z]], data_j)
-                    p_j = len(data_j)*math.exp(p_j)
+                p_i = self.__ComputeRestrGSProbabilities(cl, i, j, z, "i")
+                p_j = self.__ComputeRestrGSProbabilities(cl, i, j, z, "j")
 
                 p = p_i / (p_i+p_j)
                 r = RandUnifGenerator.rvs(size=1, random_state = rng)
@@ -379,7 +415,7 @@ class SplitAndMerge(object):
                     self.__ComputeS(r[0],r[1])
                     cl=self.__Claunch(r[0],r[1])
                     for k in range(T):
-                        cl = self.__RestrGS(cl,r[1])
+                        cl = self.__RestrGS(cl,r[0],r[1])
                     self.__C=self.__SplitOrMerge(cl,r[0],r[1])
                     
                 for m in range(M):
