@@ -226,19 +226,14 @@ class SplitAndMerge(object):
                 v=cl.copy()
                 q=1
                 for z in range(len(self.__S)):   #fake gibbs sampling to compute q(c/cMerge) 
-                    indexes_i = self.__S[v==self.__C[self.__S[z]]]
-                    data_i = self.__X[indexes_i] 
-                    if(len(data_i)==0):
-                        p_i = self.__hierarchy.prior_pred_lpdf(\
-                            self.__X[self.__S[z]])
-                        p_i = math.exp(p_i)
-                    else:
-                        p_i = self.__hierarchy.conditional_pred_lpdf(
-                            self.__X[self.__S[z]], data_i)
-                        p_i = len(data_i)*math.exp(p_i)
-                    v[z]=self.__C[self.__S[z]]
-                    q=q*p_i
-                
+                     p_i=self.__ComputeRestrGSProbabilities(v, i, j, z, cluster="i")
+                     p_j=self.__ComputeRestrGSProbabilities(v, i, j, z, cluster="j")
+                     p=p_i/(p_i+p_j)                    
+                     v[z]=self.__C[self.__S[z]]
+                     if (v[z]==self.__C[i]):
+                         q=q*p
+                     else:
+                         q=q*(1-p)                
                 p1=q
                 p2=math.factorial(len(self.__S)+2-1)/\
                     (math.factorial((self.__C==self.__LabI).sum())*\
