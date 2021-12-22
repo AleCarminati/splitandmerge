@@ -90,6 +90,9 @@ class NNIGHierarchy(AbstractHierarchy):
 
     def compute_posterior_hypers(self, data):
         n = len(data)
+        if(n==0):
+            raise Exception("Empty data array passed to "+\
+                "compute_posterior_hypers")
         mu_n = self.__lambda0/(self.__lambda0+n)*self.__mu0 + \
             n/(self.__lambda0+n)*data.mean()
         alpha_n = self.__alpha0 + n/2
@@ -108,15 +111,19 @@ class NNIGHierarchy(AbstractHierarchy):
         return np.column_stack((mu, sigmasq))
 
     def prior_pred_lpdf(self, x):
+        """ Note: the formula has been taken from the function marg_lpdf of 
+        the file nnig_hierarchy.cc in bayesmix.
+        """
         return ss.t.logpdf(x, 2*self.__alpha0, loc=self.__mu0,\
-            scale =self.__beta0*(1+1/self.__lambda0)/self.__alpha0)
+            scale =math.sqrt(self.__beta0*(1+1/self.__lambda0)/self.__alpha0))
             
     def conditional_pred_lpdf(self, x, data):
         if(len(data)==0):
-            raise Exception("Empty data array passed to conditional_pred_lpdf.")
+            raise Exception("Empty data array passed to"+\
+                "conditional_pred_lpdf.")
         mu_n, lambda_n, alpha_n, beta_n = self.compute_posterior_hypers(data)
         return ss.t.logpdf(x, 2*alpha_n, loc=mu_n,\
-            scale =beta_n*(1+1/lambda_n)/alpha_n)
+            scale =math.sqrt(beta_n*(1+1/lambda_n)/alpha_n))
 
 #Split and Merge Class
 class SplitAndMerge(object):
