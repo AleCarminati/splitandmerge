@@ -269,7 +269,7 @@ class SplitAndMerge(object):
                         prob = self.__hierarchy.conditional_pred_lpdf(z, data_j[0:k])
                     p_j+=prob
                     
-                p3=math.exp(p_i+p_j-P_i)
+                p3=math.exp(-p_i-p_j+P_i)
                 
                 AcRa=min(1,p1*p2*p3)#acceptance ratio
                                
