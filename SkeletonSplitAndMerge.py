@@ -98,7 +98,7 @@ class NNIGHierarchy(AbstractHierarchy):
         alpha_n = self.__alpha0 + n/2
         beta_n = self.__beta0 + 0.5*data.var()*n+0.5*n*self.__lambda0\
             /(n+self.__lambda0)*(self.__mu0-data.mean())**2
-        return mu_n, self.__lambda0, alpha_n, beta_n
+        return mu_n, self.__lambda0+n, alpha_n, beta_n
 
     def sample_full_conditional(self, data, size=1):
         mu_n, lambda_n, alpha_n, beta_n = self.compute_posterior_hypers(data)

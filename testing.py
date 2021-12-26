@@ -15,7 +15,7 @@ class TestMethods(unittest.TestCase):
 			-69,-25,-30,43,27,-29,-14,81,-86,-21,85,28,-43,75])
 		self.assertAlmostEqual(model.compute_posterior_hypers(data)[0],\
 			1.74545454545)
-		self.assertEqual(model.compute_posterior_hypers(data)[1],5)
+		self.assertEqual(model.compute_posterior_hypers(data)[1],55)
 		self.assertEqual(model.compute_posterior_hypers(data)[2],28)
 		self.assertAlmostEqual(model.compute_posterior_hypers(data)[3],\
 			70682.2181818)
@@ -27,7 +27,7 @@ class TestMethods(unittest.TestCase):
 		model = sm.NNIGHierarchy(2,8,5,7,3)
 		data = np.array([3422])
 		self.assertEqual(model.compute_posterior_hypers(data)[0],382)
-		self.assertEqual(model.compute_posterior_hypers(data)[1],8)
+		self.assertEqual(model.compute_posterior_hypers(data)[1],9)
 		self.assertEqual(model.compute_posterior_hypers(data)[2],5.5)
 		self.assertEqual(model.compute_posterior_hypers(data)[3],5198407)
 
@@ -58,7 +58,7 @@ class TestMethods(unittest.TestCase):
 			-45,86,82,23,-69,-22,86,-92,72,-53,-23,-13,27,-41,23,-97,14,-89,40,26,4,
 			61,-28,25,90,30,43,-8,-82,-44,80,-37,87])
 		self.assertAlmostEqual(model.conditional_pred_lpdf(x,data),\
-			np.log(0.0061991266987))
+			np.log(0.0068674610086127931507507))
 
 	def test_NNIGHierarchy_conditional_pred_lpdf_no_data(self):
 		""" Test that conditional_pred_lpdf function of the NNIGHierarchy class
