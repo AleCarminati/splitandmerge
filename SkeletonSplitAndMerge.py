@@ -10,12 +10,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import math
 
+seed = 265815667228932327047115325544902682949
+# Command to set the random seed to a casual value
+# seed = np.random.SeedSequence().entropy
+
 # Command to set the random seed to a fixed value for reproducibility of the
 # experiments.
-rng = np.random.default_rng(265815667228932327047115325544902682949)
-
-# Command to set the random seed to a casual value
-# rng = np.random.default_rng(np.random.SeedSequence().entropy)
+rng = np.random.default_rng(seed)
 
 class AbstractHierarchy(object):
     """Abstract class that represents the mixture model.
@@ -292,11 +293,11 @@ class SplitAndMerge(object):
             labels.
             '''
             for i in range(len(self.__C)):
-                unique_labels = np.unique(self.__C)
-                unique_labels = np.append(unique_labels, max(unique_labels)+1)
-                labels_prob = np.empty(len(unique_labels))
                 X_without_i = np.delete(self.__X,i)
                 C_without_i = np.delete(self.__C,i)
+                unique_labels = np.unique(C_without_i)
+                unique_labels = np.append(unique_labels, max(unique_labels)+1)
+                labels_prob = np.empty(len(unique_labels))
                 for j in range(len(unique_labels)):
                     label = unique_labels[j]
                     # Note: np.delete deletes from a copy of the array, not 
@@ -404,6 +405,7 @@ class SplitAndMerge(object):
                           
         def SplitAndMergeAlgo(self,T,K,M,N=2000):
             print("Starting Split and Merge Algorithm!")
+            print(f"Random seed: {seed}")
             print(f"Iteration: 0/{N}", end="\r")
             matrix=np.empty((N, len(self.__X)), dtype=int)
             for n in range(N):
@@ -425,7 +427,7 @@ class SplitAndMerge(object):
 
                 print(f"Iteration: {n+1}/{N}", end="\r")
 
-            print("Completed!")
+            print("\nCompleted!")
             return matrix
                
 
@@ -462,10 +464,12 @@ def cluster_estimate(chain_result):
 
 if __name__ == "__main__":
     # This snippet of code generates the data and calls the algorithm.
+    n_iterations = 100
     n_clusters = 5
     data_size = 100
-    distribution = NNIGHierarchy(0, 0.01, 100, 100, 1)
-    parameters = distribution.sample_prior(size=n_clusters)
+    prior_distribution = NNIGHierarchy(0, 0.01, 100, 100, 1)
+    data_distribution = NNIGHierarchy(0, 0.01, 100, 100, 1)
+    parameters = data_distribution.sample_prior(size=n_clusters)
 
     parameters_choice = rng.integers(0, high=(n_clusters-1),\
         size=data_size)
@@ -484,19 +488,21 @@ if __name__ == "__main__":
 
     labels = np.full(data_size, 1, dtype=int)
 
-    labels_samples = SplitAndMerge(data, labels, distribution).\
-        SplitAndMergeAlgo(5, 1, 1, N=10000)
+    labels_samples = SplitAndMerge(data, labels, prior_distribution).\
+        SplitAndMergeAlgo(5, 1, 1, N=n_iterations)
 
-    # TODO: plot the number of different clusters for each iteration of the
-    # chain.
-    # n_clusters_samples = np.apply_along_axis(lambda x: len(np.unique(x)), 0, labels_samples)
-    # sns.scatterplot(n_clusters_samples)
-    # plt.savefig("n_clusters.png")
-    # plt.close()
+    n_clusters_samples = np.apply_along_axis(lambda x: len(np.unique(x)), 1,\
+        labels_samples)
+    p = sns.lineplot(x=np.full(n_iterations, 1, dtype=int).cumsum(),\
+        y=n_clusters_samples)
+    plt.xlabel("Iteration")
+    plt.ylabel("Number of clusters")
+    plt.savefig("n_clusters.png")
+    plt.close()
 
     clust_estimate = cluster_estimate(labels_samples)
 
     # These two lines save a plot of the data, clustered using Split&Merge.
-    sns.kdeplot(data, hue=clust_estimate, legend=False)
+    sns.kdeplot(data, hue=clust_estimate)
     plt.savefig("data_clustered.png")
     plt.close()
