@@ -12,7 +12,6 @@ import math
 
 seed = 265815667228932327047115325544902682949
 # Command to set the random seed to a casual value
-# seed = np.random.SeedSequence().entropy
 
 # Command to set the random seed to a fixed value for reproducibility of the
 # experiments.
