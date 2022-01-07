@@ -483,10 +483,10 @@ if __name__ == "__main__":
 
     # These two lines save a plot of the data.
     #sns.kdeplot(x=data, hue=parameters_choice)
-    sns.scatterplot(x=data, y=np.repeat("Split&Merge", len(data)),\
+    p=sns.scatterplot(x=data, y=np.repeat("Split&Merge", len(data)),\
         hue=parameters_choice,palette = "tab10", linewidth=0, legend=None)
     plt.title("Generated data")
-    plt.yticks(rotation=90, verticalalignment="center")
+    plt.tick_params(axis='y', left=False, labelleft=False)
     plt.savefig("data.png", dpi=500)
     plt.close()
 
@@ -512,5 +512,6 @@ if __name__ == "__main__":
     sns.scatterplot(x=data, y=np.repeat("Split&Merge", len(data)),\
         hue=clust_estimate,palette = "tab10", linewidth=0, legend=None)
     plt.yticks(rotation=90, verticalalignment="center")
+    plt.title("Split&Merge Result")
     plt.savefig("data_clustered.png", dpi=500)
     plt.close()
