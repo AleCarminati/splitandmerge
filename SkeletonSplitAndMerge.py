@@ -12,6 +12,7 @@ import math
 
 seed = 265815667228932327047115325544902682949
 # Command to set the random seed to a casual value
+seed = np.random.SeedSequence().entropy
 
 # Command to set the random seed to a fixed value for reproducibility of the
 # experiments.
@@ -481,8 +482,12 @@ if __name__ == "__main__":
         scale = parameters[parameters_choice,1], random_state = rng)
 
     # These two lines save a plot of the data.
-    sns.kdeplot(x=data, hue=parameters_choice)
-    plt.savefig("data.png")
+    #sns.kdeplot(x=data, hue=parameters_choice)
+    sns.scatterplot(x=data, y=np.repeat("Split&Merge", len(data)),\
+        hue=parameters_choice,palette = "tab10", linewidth=0, legend=None)
+    plt.title("Generated data")
+    plt.yticks(rotation=90, verticalalignment="center")
+    plt.savefig("data.png", dpi=500)
     plt.close()
 
     labels = np.full(data_size, 1, dtype=int)
@@ -496,12 +501,16 @@ if __name__ == "__main__":
         y=n_clusters_samples)
     plt.xlabel("Iteration")
     plt.ylabel("Number of clusters")
-    plt.savefig("n_clusters.png")
+    plt.savefig("n_clusters.png", dpi=500)
     plt.close()
 
     clust_estimate = cluster_estimate(labels_samples)
+    clust_estimate = ss.rankdata(clust_estimate, method='dense')
 
     # These two lines save a plot of the data, clustered using Split&Merge.
-    sns.kdeplot(data, hue=clust_estimate)
-    plt.savefig("data_clustered.png")
+    #sns.kdeplot(data, hue=clust_estimate)
+    sns.scatterplot(x=data, y=np.repeat("Split&Merge", len(data)),\
+        hue=clust_estimate,palette = "tab10", linewidth=0, legend=None)
+    plt.yticks(rotation=90, verticalalignment="center")
+    plt.savefig("data_clustered.png", dpi=500)
     plt.close()
